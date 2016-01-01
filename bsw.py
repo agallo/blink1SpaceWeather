@@ -18,6 +18,11 @@ colorToRGB = {'green': [0x00,0xff,0x00], 'cyan': [0x00,0xff,0xff], 'blue': [0x00
 
 
 def getSpaceWeather():
+    '''
+    get current space weather prediction from NOAA
+    :return:GRS
+    '''
+    GRS = {}
 #    URL = "http://services.swpc.noaa.gov/products/noaa-scales.json"
 #    raw = urllib.urlopen(URL)
 #    jresponse = json.load(raw)
@@ -26,31 +31,29 @@ def getSpaceWeather():
         jresponse = json.load(data_file)
 
     # current activity
-    G = jresponse['0']['G']['Scale']
-    R = jresponse['0']['R']['Scale']
-    S = jresponse['0']['S']['Scale']
+    GRS['G'] = jresponse['0']['G']['Scale']
+    GRS['R'] = jresponse['0']['R']['Scale']
+    GRS['S'] = jresponse['0']['S']['Scale']
     predictDate = jresponse['0']['DateStamp']
     predictTime = jresponse['0']['TimeStamp']
 
-    print "current Geomagnetic Storm status:     %s" % G
-    print "current Solar Radiation Storm status: %s" % S
-    print "current Radio Blackout status:        %s" % R
+    print "current Geomagnetic Storm status:     %s" % GRS['G']
+    print "current Solar Radiation Storm status: %s" % GRS['R']
+    print "current Radio Blackout status:        %s" % GRS['S']
 
     print "prediction date/time: %s %s UTC" % (predictDate, predictTime)
+    return GRS
 
 def getCurrentBlink1Status():
     '''
     read the current color from the blink1 device to determine
     what the previous forecast was
-    :return: scale
+    :return: currColorString
     '''
     currentColor = check_output(['blink1-tool', '--rgbread'])
-    red = currentColor[19:23]
-    green = currentColor[24:28]
-    blue = currentColor[29:33]
-    print "current color, red value: %s" % red
-    print "current color, green value: %s" % green
-    print "current color, blue value: %s" % blue
+    currColorString = '%s,%s,%s' %(currentColor[19:23], currentColor[24:28],currentColor[29:33] )
+    print "current color to pass to command: " + currColorString
+    return currColorString
 
 
 
@@ -59,4 +62,4 @@ def getCurrentBlink1Status():
 if __name__ == '__main__':
     getSpaceWeather()
     getCurrentBlink1Status()
-
+#    updateBlink1()
