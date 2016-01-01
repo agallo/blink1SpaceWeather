@@ -3,6 +3,21 @@
 import urllib
 import json
 from subprocess import check_output
+from argparse import ArgumentParser
+
+# TODO - figure out how to set default forecast type to be G
+
+# setup some command line arguments
+
+parser = ArgumentParser(description="display space weather on a blink(1) mk2")
+
+parser.add_argument("forecast", type=str, choices=['G','R', 'S'], default = 'G',
+                    help="Which type of forecast to display. G = Geomagentic Storm, "
+                         "R = Radio Blackout, S = Solar Radiation Storm. "
+                         "Default is Geomagnetic")
+
+args = parser.parse_args()
+forecasttype = args.forecast
 
 
 try:
@@ -17,9 +32,10 @@ colorToRGB = {'green': [0x00,0xff,0x00], 'cyan': [0x00,0xff,0xff], 'blue': [0x00
               'yellow': [0xff,0xff,0x00], 'magenta': [0xff,0x00,0xff], 'red': [0xff,0x00,0x00]}
 
 
-def getSpaceWeather():
+def getSpaceWeather(forecasttype):
     '''
     get current space weather prediction from NOAA
+    :param forecasttype: which of the three forecasts to display
     :return:GRS
     '''
     GRS = {}
@@ -42,7 +58,9 @@ def getSpaceWeather():
     print "current Radio Blackout status:        %s" % GRS['S']
 
     print "prediction date/time: %s %s UTC" % (predictDate, predictTime)
-    return GRS
+    return GRS[forecasttype]
+
+
 
 def getCurrentBlink1Status():
     '''
@@ -54,12 +72,21 @@ def getCurrentBlink1Status():
     currColorString = '%s,%s,%s' %(currentColor[19:23], currentColor[24:28],currentColor[29:33] )
     print "current color to pass to command: " + currColorString
     return currColorString
+# TODO - figure out best way to map current color to scale (maybe search colorToRGB dict and return key from value)
 
 
+def updateBlink1(current, next):
+    '''
+    send update to the blink1; worsening prediction will have different pattern than improving
+    :param current: the current state of the blink1
+    :param next: the next scale to be displayed
+    '''
+    print current
+    print next
 
 
 
 if __name__ == '__main__':
-    getSpaceWeather()
-    getCurrentBlink1Status()
-#    updateBlink1()
+    next = getSpaceWeather(forecasttype)
+    current = getCurrentBlink1Status()
+    updateBlink1(current, next)
