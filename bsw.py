@@ -1,10 +1,17 @@
 #!/usr/bin/python
 
 import urllib
-import json
 from subprocess import check_output
-from argparse import ArgumentParser
 from collections import namedtuple
+import os
+
+import json
+from argparse import ArgumentParser
+
+abspath = os.path.abspath(__file__)
+dname = os.path.dirname(abspath)
+os.chdir(dname)
+
 
 # TODO (??) - write to log file (time, G/R/S scales)
 
@@ -19,7 +26,7 @@ parser = ArgumentParser(description="display space weather on a blink(1) mk2",
 
 # TODO - figure out how to set default forecast type to be G
 
-parser.add_argument("forecast", type=str, choices=['G','R', 'S'], default = 'G',
+parser.add_argument("forecast", type=str, choices=['G', 'R', 'S'], default='G',
                     help="Which type of forecast to display. G = Geomagentic Storm, "
                          "R = Radio Blackout, S = Solar Radiation Storm. "
                          "Default is Geomagnetic")
@@ -35,13 +42,13 @@ except:
 
 
 # establish some named tuples for each position in the scale (this may be better than the above vars)
-Severity = namedtuple('Severity', 'scale red green blue')   #scale = 0-5, red/green/blue - hex values
-zero = Severity(scale = '0', red = '0x00', green = '0xff', blue = '0x00')   # green
-one =  Severity(scale = '1', red = '0x00', green = '0xff', blue = '0xff')      # cyan
-two =  Severity(scale = '2', red = '0x00', green = '0x00', blue = '0xff')      # blue
-three= Severity(scale = '3', red = '0xff', green = '0xff', blue = '0x00')    # yellow
-four = Severity(scale = '4', red = '0xff', green = '0x00', blue = '0xff')     # magenta
-five = Severity(scale = '5', red = '0xff', green = '0x00', blue = '0x00')     # red
+Severity = namedtuple('Severity', 'scale red green blue')  # scale = 0-5, red/green/blue - hex values
+zero = Severity(scale='0', red='0x00', green='0xff', blue='0x00')  # green
+one = Severity(scale='1', red='0x00', green='0xff', blue='0xff')  # cyan
+two = Severity(scale='2', red='0x00', green='0x00', blue='0xff')  # blue
+three = Severity(scale='3', red='0xff', green='0xff', blue='0x00')  # yellow
+four = Severity(scale='4', red='0xff', green='0x00', blue='0xff')  # magenta
+five = Severity(scale='5', red='0xff', green='0x00', blue='0x00')  # red
 # create a list of named tuples that will make iterating over them and matching easier
 allscales = [zero, one, two, three, four, five]
 
@@ -53,12 +60,12 @@ def getSpaceWeather(forecasttype):
     :return:GRS
     '''
     GRS = {}
-#    URL = "http://services.swpc.noaa.gov/products/noaa-scales.json"
-#    raw = urllib.urlopen(URL)
-#    jresponse = json.load(raw)
+    URL = "http://services.swpc.noaa.gov/products/noaa-scales.json"
+    raw = urllib.urlopen(URL)
+    jresponse = json.load(raw)
 
-    testdata = open('test-data/G2.json')
-    jresponse = json.load(testdata)
+#    testdata = open('test-data/G2.json')
+#    jresponse = json.load(testdata)
 
     # current activity
     GRS['G'] = jresponse['0']['G']['Scale']
@@ -72,8 +79,10 @@ def getSpaceWeather(forecasttype):
     print "current Radio Blackout status:        %s" % GRS['S']
 
     print "prediction date/time: %s %s UTC" % (predictDate, predictTime)
+    logfile.write('getSpaceWeather: ' + predictDate + ' ' + predictTime + ' UTC ' +
+                  'G: ' + GRS['G'] + ' R: ' + GRS['R'] + ' S: ' + GRS['S'] +
+                  ' Selected forecast type: ' + forecasttype + '\n')
     return GRS[forecasttype]
-
 
 
 def getCurrentBlink1Status():
@@ -83,7 +92,7 @@ def getCurrentBlink1Status():
     :return: currentSeverity (item.scale)
     '''
     currentColor = check_output(['blink1-tool', '--rgbread'])
-    currColorString = '%s,%s,%s' %(currentColor[19:23], currentColor[24:28],currentColor[29:33] )
+    currColorString = '%s,%s,%s' % (currentColor[19:23], currentColor[24:28], currentColor[29:33])
     # determine scale number from color by searching through the list of named tuples
     for item in allscales:
         if currColorString == '%s,%s,%s' % (item.red, item.green, item.blue):
@@ -100,24 +109,32 @@ def updateBlink1(current, next):
     print "next scale: " + str(next)
     nextColorString = allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue
     print "next color string: " + str(nextColorString)
-# !!!!!!!!!
-# TODO - blinking option isn't working.  it's either ignored (when included with the delay section) or
-# TODO ----    throws an error when included in its own section
-# !!!!!!!!!
+    # !!!!!!!!!
+    # TODO - blinking option isn't working.  it's either ignored (when included with the delay section) or
+    # TODO ----    throws an error when included in its own section
+    # !!!!!!!!!
     if current == next:
         print "no change"
+        logfile.write(
+            'updateBlink1: no change in prediction.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
         return
     elif current > next:
-        print "improving"
+        logfile.write(
+            'updateBlink1: prediction improving.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
         check_output(['blink1-tool', '-t 750 -m 500 --blink 5', '--rgb',
-                     '%s, %s, %s ' % (allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
+                      '%s, %s, %s ' % (
+                      allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
     elif next > current:
-        print "worsening"
+        logfile.write(
+            'updateBlink1: prediction worsening.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
         check_output(['blink1-tool', '-t 350', '-m 150', '--blink 10', '--rgb',
-                     '%s, %s, %s ' % (allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
+                      '%s, %s, %s ' % (
+                      allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
 
 
 if __name__ == '__main__':
+    logfile = open('log/activity', 'a')
     next = getSpaceWeather(forecasttype)
     current = getCurrentBlink1Status()
     updateBlink1(current, next)
+    logfile.close()
