@@ -6,10 +6,11 @@ from subprocess import check_output
 from argparse import ArgumentParser
 from collections import namedtuple
 
+# TODO (??) - write to log file (time, G/R/S scales)
+
 # the terms 'current' and 'next' are used through out in comments and variable and function names
 # for purposes of this script, 'current' means the scale/color that is CURRENTLY displayed on the blink1
 # 'next' refers to what will be displayed (ie- what was just retrieved from NOAA and will be used to update the blink1)
-
 
 # setup some command line arguments
 
@@ -17,7 +18,6 @@ parser = ArgumentParser(description="display space weather on a blink(1) mk2",
                         epilog="See http://www.swpc.noaa.gov/noaa-scales-explanation for description of the scales")
 
 # TODO - figure out how to set default forecast type to be G
-# TODO (??) - write to log file (time, G/R/S scales)
 
 parser.add_argument("forecast", type=str, choices=['G','R', 'S'], default = 'G',
                     help="Which type of forecast to display. G = Geomagentic Storm, "
@@ -27,21 +27,11 @@ parser.add_argument("forecast", type=str, choices=['G','R', 'S'], default = 'G',
 args = parser.parse_args()
 forecasttype = args.forecast
 
-
+# check to make sure there is a working blink1 attached
 try:
     a = check_output(['blink1-tool', '--list'])
 except:
     print "error: no blink1 device found"
-
-# create some dictionaries to map scale (0 - 5) to colors (both as name and rgb values)
-scaleToColor = {'0': 'green', '1': 'cyan', '2': 'blue', '3': 'yellow', '4': 'magenta', '5': 'red'}
-colorToScale = {'green': '0', 'cyan': '1', 'blue': '2', 'yellow': '3', 'magenta': '4', 'red': '5'}
-#colorToRGB = {'green': [0x00,0xff,0x00], 'cyan': [0x00,0xff,0xff], 'blue': [0x00,0x00,0xff],
-#              'yellow': [0xff,0xff,0x00], 'magenta': [0xff,0x00,0xff], 'red': [0xff,0x00,0x00]}
-# dict of tuple of strings might be more useful
-# a class for scale might be better yet.  also check out named tuples in 'collections'
-colorToRGB = {'green': ('0x00','0xff','0x00'), 'cyan': ('0x00','0xff','0xff'), 'blue': ('0x00','0x00','0xff'),
-              'yellow': ('0xff','0xff','0x00'), 'magenta': ('0xff','0x00','0xff'), 'red': ('0xff','0x00','0x00')}
 
 
 # establish some named tuples for each position in the scale (this may be better than the above vars)
@@ -52,8 +42,9 @@ two =  Severity(scale = '2', red = '0x00', green = '0x00', blue = '0xff')      #
 three= Severity(scale = '3', red = '0xff', green = '0xff', blue = '0x00')    # yellow
 four = Severity(scale = '4', red = '0xff', green = '0x00', blue = '0xff')     # magenta
 five = Severity(scale = '5', red = '0xff', green = '0x00', blue = '0x00')     # red
-#create a list of named tuples that will make iterating over them and matching
+# create a list of named tuples that will make iterating over them and matching easier
 allscales = [zero, one, two, three, four, five]
+
 
 def getSpaceWeather(forecasttype):
     '''
@@ -66,8 +57,8 @@ def getSpaceWeather(forecasttype):
 #    raw = urllib.urlopen(URL)
 #    jresponse = json.load(raw)
 
-    with open('test-data/G3.json') as data_file:
-        jresponse = json.load(data_file)
+    testdata = open('test-data/G2.json')
+    jresponse = json.load(testdata)
 
     # current activity
     GRS['G'] = jresponse['0']['G']['Scale']
@@ -93,12 +84,10 @@ def getCurrentBlink1Status():
     '''
     currentColor = check_output(['blink1-tool', '--rgbread'])
     currColorString = '%s,%s,%s' %(currentColor[19:23], currentColor[24:28],currentColor[29:33] )
-    print "current color to pass to command: " + currColorString
     # determine scale number from color by searching through the list of named tuples
     for item in allscales:
         if currColorString == '%s,%s,%s' % (item.red, item.green, item.blue):
             return item.scale
-
 
 
 def updateBlink1(current, next):
@@ -111,8 +100,21 @@ def updateBlink1(current, next):
     print "next scale: " + str(next)
     nextColorString = allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue
     print "next color string: " + str(nextColorString)
-    check_output(['blink1-tool', '--rgb', '%s, %s, %s' %(allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
-# TODO - blinking logic to indicate improving or worsening weather.
+# !!!!!!!!!
+# TODO - blinking option isn't working.  it's either ignored (when included with the delay section) or
+# TODO ----    throws an error when included in its own section
+# !!!!!!!!!
+    if current == next:
+        print "no change"
+        return
+    elif current > next:
+        print "improving"
+        check_output(['blink1-tool', '-t 750 -m 500 --blink 5', '--rgb',
+                     '%s, %s, %s ' % (allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
+    elif next > current:
+        print "worsening"
+        check_output(['blink1-tool', '-t 350', '-m 150', '--blink 10', '--rgb',
+                     '%s, %s, %s ' % (allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
 
 
 if __name__ == '__main__':
