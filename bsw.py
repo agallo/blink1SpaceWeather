@@ -13,8 +13,6 @@ dname = os.path.dirname(abspath)
 os.chdir(dname)
 
 
-# TODO (??) - write to log file (time, G/R/S scales)
-
 # the terms 'current' and 'next' are used through out in comments and variable and function names
 # for purposes of this script, 'current' means the scale/color that is CURRENTLY displayed on the blink1
 # 'next' refers to what will be displayed (ie- what was just retrieved from NOAA and will be used to update the blink1)
@@ -36,7 +34,8 @@ forecasttype = args.forecast
 
 # check to make sure there is a working blink1 attached
 try:
-    a = check_output(['blink1-tool', '--list'])
+    a = check_output(['/usr/local/bin/blink1-tool', '--list'])
+    print a
 except:
     print "error: no blink1 device found"
 
@@ -91,7 +90,7 @@ def getCurrentBlink1Status():
     what the previous forecast was
     :return: currentSeverity (item.scale)
     '''
-    currentColor = check_output(['blink1-tool', '--rgbread'])
+    currentColor = check_output(['/usr/local/bin/blink1-tool', '--rgbread'])
     currColorString = '%s,%s,%s' % (currentColor[19:23], currentColor[24:28], currentColor[29:33])
     # determine scale number from color by searching through the list of named tuples
     for item in allscales:
@@ -121,13 +120,13 @@ def updateBlink1(current, next):
     elif current > next:
         logfile.write(
             'updateBlink1: prediction improving.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
-        check_output(['blink1-tool', '-t 750 -m 500 --blink 5', '--rgb',
+        check_output(['/usr/local/bin/blink1-tool', '-t 750 -m 500 --blink 5', '--rgb',
                       '%s, %s, %s ' % (
                       allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
     elif next > current:
         logfile.write(
             'updateBlink1: prediction worsening.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
-        check_output(['blink1-tool', '-t 350', '-m 150', '--blink 10', '--rgb',
+        check_output(['/usr/local/bin/blink1-tool', '-t 350', '-m 150', '--blink 10', '--rgb',
                       '%s, %s, %s ' % (
                       allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
 
