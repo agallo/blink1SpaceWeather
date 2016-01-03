@@ -72,7 +72,7 @@ def getSpaceWeather(forecasttype):
     predictDate = jresponse['0']['DateStamp']
     predictTime = jresponse['0']['TimeStamp']
 
-    logfile.write('getSpaceWeather: ' + predictDate + ' ' + predictTime + ' UTC ' +
+    logfile.write('getSpaceWeather: ' + predictDate + ' ' + predictTime + ' UTC. ' +
                   'G: ' + GRS['G'] + ' R: ' + GRS['R'] + ' S: ' + GRS['S'] +
                   ' Selected forecast type: ' + forecasttype + '\n')
     return GRS[forecasttype]
