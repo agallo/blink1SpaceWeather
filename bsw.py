@@ -35,7 +35,6 @@ forecasttype = args.forecast
 # check to make sure there is a working blink1 attached
 try:
     a = check_output(['/usr/local/bin/blink1-tool', '--list'])
-    print a
 except:
     print "error: no blink1 device found"
 
@@ -43,9 +42,9 @@ except:
 # establish some named tuples for each position in the scale (this may be better than the above vars)
 Severity = namedtuple('Severity', 'scale red green blue')  # scale = 0-5, red/green/blue - hex values
 zero = Severity(scale='0', red='0x00', green='0xff', blue='0x00')  # green
-one = Severity(scale='1', red='0x00', green='0xff', blue='0xff')  # cyan
-two = Severity(scale='2', red='0x00', green='0x00', blue='0xff')  # blue
-three = Severity(scale='3', red='0xff', green='0xff', blue='0x00')  # yellow
+one  = Severity(scale='1', red='0x00', green='0xff', blue='0xff')  # cyan
+two  = Severity(scale='2', red='0x00', green='0x00', blue='0xff')  # blue
+three= Severity(scale='3', red='0xff', green='0xff', blue='0x00')  # yellow
 four = Severity(scale='4', red='0xff', green='0x00', blue='0xff')  # magenta
 five = Severity(scale='5', red='0xff', green='0x00', blue='0x00')  # red
 # create a list of named tuples that will make iterating over them and matching easier
@@ -73,11 +72,6 @@ def getSpaceWeather(forecasttype):
     predictDate = jresponse['0']['DateStamp']
     predictTime = jresponse['0']['TimeStamp']
 
-    print "current Geomagnetic Storm status:     %s" % GRS['G']
-    print "current Solar Radiation Storm status: %s" % GRS['R']
-    print "current Radio Blackout status:        %s" % GRS['S']
-
-    print "prediction date/time: %s %s UTC" % (predictDate, predictTime)
     logfile.write('getSpaceWeather: ' + predictDate + ' ' + predictTime + ' UTC ' +
                   'G: ' + GRS['G'] + ' R: ' + GRS['R'] + ' S: ' + GRS['S'] +
                   ' Selected forecast type: ' + forecasttype + '\n')
@@ -104,28 +98,24 @@ def updateBlink1(current, next):
     :param current: the current state of the blink1
     :param next: the next scale to be displayed
     '''
-    print "current scale: " + str(current)
-    print "next scale: " + str(next)
     nextColorString = allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue
-    print "next color string: " + str(nextColorString)
     # !!!!!!!!!
     # TODO - blinking option isn't working.  it's either ignored (when included with the delay section) or
     # TODO ----    throws an error when included in its own section
     # !!!!!!!!!
     if current == next:
-        print "no change"
         logfile.write(
-            'updateBlink1: no change in prediction.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
+            'updateBlink1: NO CHANGE in prediction.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
         return
     elif current > next:
         logfile.write(
-            'updateBlink1: prediction improving.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
+            'updateBlink1: PREDICTION IMPROVING.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
         check_output(['/usr/local/bin/blink1-tool', '-t 750 -m 500 --blink 5', '--rgb',
                       '%s, %s, %s ' % (
                       allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
     elif next > current:
         logfile.write(
-            'updateBlink1: prediction worsening.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
+            'updateBlink1: PREDICTION WORSENING.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
         check_output(['/usr/local/bin/blink1-tool', '-t 350', '-m 150', '--blink 10', '--rgb',
                       '%s, %s, %s ' % (
                       allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
