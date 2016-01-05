@@ -4,9 +4,10 @@ import urllib
 from subprocess import check_output
 from collections import namedtuple
 import os
-
 import json
 from argparse import ArgumentParser
+from time import sleep
+
 
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
@@ -32,19 +33,23 @@ parser.add_argument("forecast", type=str, choices=['G', 'R', 'S'], default='G',
 args = parser.parse_args()
 forecasttype = args.forecast
 
+blinkcmd = "/usr/local/bin/blink1-tool"
+
+
 # check to make sure there is a working blink1 attached
 try:
-    a = check_output(['/usr/local/bin/blink1-tool', '--list'])
+    a = check_output([blinkcmd, '--list'])
 except:
     print "error: no blink1 device found"
+
 
 
 # establish some named tuples for each position in the scale (this may be better than the above vars)
 Severity = namedtuple('Severity', 'scale red green blue')  # scale = 0-5, red/green/blue - hex values
 zero = Severity(scale='0', red='0x00', green='0xff', blue='0x00')  # green
-one  = Severity(scale='1', red='0x00', green='0xff', blue='0xff')  # cyan
-two  = Severity(scale='2', red='0x00', green='0x00', blue='0xff')  # blue
-three= Severity(scale='3', red='0xff', green='0xff', blue='0x00')  # yellow
+one = Severity(scale='1', red='0x00', green='0xff', blue='0xff')  # cyan
+two = Severity(scale='2', red='0x00', green='0x00', blue='0xff')  # blue
+three = Severity(scale='3', red='0xff', green='0xff', blue='0x00')  # yellow
 four = Severity(scale='4', red='0xff', green='0x00', blue='0xff')  # magenta
 five = Severity(scale='5', red='0xff', green='0x00', blue='0x00')  # red
 # create a list of named tuples that will make iterating over them and matching easier
@@ -62,7 +67,7 @@ def getSpaceWeather(forecasttype):
     raw = urllib.urlopen(URL)
     jresponse = json.load(raw)
 
-#    testdata = open('test-data/G2.json')
+#    testdata = open('test-data/G1.json')
 #    jresponse = json.load(testdata)
 
     # current activity
@@ -84,7 +89,7 @@ def getCurrentBlink1Status():
     what the previous forecast was
     :return: currentSeverity (item.scale)
     '''
-    currentColor = check_output(['/usr/local/bin/blink1-tool', '--rgbread'])
+    currentColor = check_output([blinkcmd, '--rgbread'])
     currColorString = '%s,%s,%s' % (currentColor[19:23], currentColor[24:28], currentColor[29:33])
     # determine scale number from color by searching through the list of named tuples
     for item in allscales:
@@ -99,10 +104,6 @@ def updateBlink1(current, next):
     :param next: the next scale to be displayed
     '''
     nextColorString = allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue
-    # !!!!!!!!!
-    # TODO - blinking option isn't working.  it's either ignored (when included with the delay section) or
-    # TODO ----    throws an error when included in its own section
-    # !!!!!!!!!
     if current == next:
         logfile.write(
             'updateBlink1: NO CHANGE in prediction.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
@@ -110,15 +111,19 @@ def updateBlink1(current, next):
     elif current > next:
         logfile.write(
             'updateBlink1: PREDICTION IMPROVING.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
-        check_output(['/usr/local/bin/blink1-tool', '-t 750 -m 500 --blink 5', '--rgb',
-                      '%s, %s, %s ' % (
-                      allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
+        for blink in range(0, (int(current) - int(next))):
+            check_output([blinkcmd, '--off'])
+            sleep(1)
+            check_output([blinkcmd,  '-t 750', '--rgb', '%s, %s, %s ' % (
+                allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
     elif next > current:
         logfile.write(
             'updateBlink1: PREDICTION WORSENING.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
-        check_output(['/usr/local/bin/blink1-tool', '-t 350', '-m 150', '--blink 10', '--rgb',
-                      '%s, %s, %s ' % (
-                      allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
+        for blink in range(0, 3 * int(next)):
+            check_output([blinkcmd, '--off'])
+            sleep(.5)
+            check_output([blinkcmd, '-t 250', '-m 150', '--rgb', '%s, %s, %s ' % (
+                allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
 
 
 if __name__ == '__main__':
