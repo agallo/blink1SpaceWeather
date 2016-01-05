@@ -23,9 +23,7 @@ os.chdir(dname)
 parser = ArgumentParser(description="display space weather on a blink(1) mk2",
                         epilog="See http://www.swpc.noaa.gov/noaa-scales-explanation for description of the scales")
 
-# TODO - figure out how to set default forecast type to be G
-
-parser.add_argument("forecast", type=str, choices=['G', 'R', 'S'], default='G',
+parser.add_argument("forecast", type=str, choices=['G', 'R', 'S'], nargs='?', default='G',
                     help="Which type of forecast to display. G = Geomagentic Storm, "
                          "R = Radio Blackout, S = Solar Radiation Storm. "
                          "Default is Geomagnetic")
@@ -34,14 +32,6 @@ args = parser.parse_args()
 forecasttype = args.forecast
 
 blinkcmd = "/usr/local/bin/blink1-tool"
-
-
-# check to make sure there is a working blink1 attached
-try:
-    a = check_output([blinkcmd, '--list'])
-except:
-    print "error: no blink1 device found"
-
 
 
 # establish some named tuples for each position in the scale (this may be better than the above vars)
@@ -56,6 +46,20 @@ five = Severity(scale='5', red='0xff', green='0x00', blue='0x00')  # red
 allscales = [zero, one, two, three, four, five]
 
 
+def validateBlink():
+    '''
+    check to make sure there is a working blink1 attached
+    :return: boolean
+    '''
+    try:
+        a = check_output([blinkcmd, '--list'])
+        return True
+    except:
+        print "error: no blink1 device found"
+        logfile.write('validateBlink: !!!No valid blink(1) mk2 device - exiting\n')
+        return False
+
+
 def getSpaceWeather(forecasttype):
     '''
     get space weather prediction from NOAA for what will be displayed next
@@ -63,11 +67,12 @@ def getSpaceWeather(forecasttype):
     :return:GRS
     '''
     GRS = {}
+
     URL = "http://services.swpc.noaa.gov/products/noaa-scales.json"
     raw = urllib.urlopen(URL)
     jresponse = json.load(raw)
 
-#    testdata = open('test-data/G1.json')
+#    testdata = open('test-data/G0.json')
 #    jresponse = json.load(testdata)
 
     # current activity
@@ -100,10 +105,10 @@ def getCurrentBlink1Status():
 def updateBlink1(current, next):
     '''
     send update to the blink1; worsening prediction will have different pattern than improving
+    blink1-tool '--blink' (or equiv --flash) not working; work around via for loop and sleep. not ideal
     :param current: the current state of the blink1
     :param next: the next scale to be displayed
     '''
-    nextColorString = allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue
     if current == next:
         logfile.write(
             'updateBlink1: NO CHANGE in prediction.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
@@ -116,6 +121,7 @@ def updateBlink1(current, next):
             sleep(1)
             check_output([blinkcmd,  '-t 750', '--rgb', '%s, %s, %s ' % (
                 allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
+        return
     elif next > current:
         logfile.write(
             'updateBlink1: PREDICTION WORSENING.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
@@ -128,7 +134,8 @@ def updateBlink1(current, next):
 
 if __name__ == '__main__':
     logfile = open('log/activity', 'a')
-    next = getSpaceWeather(forecasttype)
-    current = getCurrentBlink1Status()
-    updateBlink1(current, next)
+    if validateBlink():
+        next = getSpaceWeather(forecasttype)
+        current = getCurrentBlink1Status()
+        updateBlink1(current, next)
     logfile.close()
