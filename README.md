@@ -8,14 +8,14 @@ Get and display space weather on a [blink(1) mk2](https://blink1.thingm.com/)
 
 ## Usage
 ```
-usage: bsw.py [-h] [{G,R,S}]
+usage: bsw.py [-h] [{G,R,S,w}]
 
 display space weather on a blink(1) mk2
 
 positional arguments:
-  {G,R,S}     Which type of forecast to display. G = Geomagentic Storm, R =
-              Radio Blackout, S = Solar Radiation Storm. Default is
-              Geomagnetic
+  {G,R,S,w}   Which type of forecast to display. G = Geomagentic Storm, R =
+              Radio Blackout, S = Solar Radiation Storm. w = worst scale
+              (Default is Geomagnetic)
 
 optional arguments:
   -h, --help  show this help message and exit
@@ -23,6 +23,7 @@ optional arguments:
 See http://www.swpc.noaa.gov/noaa-scales-explanation for description of the
 scales
 ```
+Worst scale will display the forecast with the highest severity.  see log for which forecast type was chosen
 
 This script uses subprocess to call the blink1-tool command line tool.
 

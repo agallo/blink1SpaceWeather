@@ -7,6 +7,7 @@ import os
 import json
 from argparse import ArgumentParser
 from time import sleep
+import operator
 
 
 abspath = os.path.abspath(__file__)
@@ -23,13 +24,13 @@ os.chdir(dname)
 parser = ArgumentParser(description="display space weather on a blink(1) mk2",
                         epilog="See http://www.swpc.noaa.gov/noaa-scales-explanation for description of the scales")
 
-parser.add_argument("forecast", type=str, choices=['G', 'R', 'S'], nargs='?', default='G',
+parser.add_argument("forecast", type=str, choices=['G', 'R', 'S', 'w'], nargs='?', default='G',
                     help="Which type of forecast to display. G = Geomagentic Storm, "
-                         "R = Radio Blackout, S = Solar Radiation Storm. "
-                         "Default is Geomagnetic")
+                         "R = Radio Blackout, S = Solar Radiation Storm. w = worst scale"
+                         " (Default is Geomagnetic)")
 
 args = parser.parse_args()
-forecasttype = args.forecast
+reqforecasttype = args.forecast
 
 blinkcmd = "/usr/local/bin/blink1-tool"
 
@@ -64,7 +65,7 @@ def getSpaceWeather(forecasttype):
     '''
     get space weather prediction from NOAA for what will be displayed next
     :param forecasttype: which of the three forecasts to display
-    :return:GRS
+    :return:GRS, selectforecasttype
     '''
     GRS = {}
 
@@ -76,16 +77,20 @@ def getSpaceWeather(forecasttype):
 #    jresponse = json.load(testdata)
 
     # current activity
-    GRS['G'] = jresponse['0']['G']['Scale']
-    GRS['R'] = jresponse['0']['R']['Scale']
-    GRS['S'] = jresponse['0']['S']['Scale']
+    GRS['G'] = int(jresponse['0']['G']['Scale'])
+    GRS['R'] = int(jresponse['0']['R']['Scale'])
+    GRS['S'] = int(jresponse['0']['S']['Scale'])
     predictDate = jresponse['0']['DateStamp']
     predictTime = jresponse['0']['TimeStamp']
 
     logfile.write('getSpaceWeather: ' + predictDate + ' ' + predictTime + ' UTC. ' +
-                  'G: ' + GRS['G'] + ' R: ' + GRS['R'] + ' S: ' + GRS['S'] +
+                  'G: ' + str(GRS['G']) + ' R: ' + str(GRS['R']) + ' S: ' + str(GRS['S']) +
                   ' Selected forecast type: ' + forecasttype + '\n')
-    return GRS[forecasttype]
+    if forecasttype == 'w':
+        maxkey = max(GRS.iteritems(), key=operator.itemgetter(1))[0]
+        return GRS[maxkey], maxkey
+    else:
+        return GRS[forecasttype], forecasttype
 
 
 def getCurrentBlink1Status():
@@ -99,10 +104,10 @@ def getCurrentBlink1Status():
     # determine scale number from color by searching through the list of named tuples
     for item in allscales:
         if currColorString == '%s,%s,%s' % (item.red, item.green, item.blue):
-            return item.scale
+            return int(item.scale)
 
 
-def updateBlink1(current, next):
+def updateBlink1(current, next, selforecasttype):
     '''
     send update to the blink1; worsening prediction will have different pattern than improving
     blink1-tool '--blink' (or equiv --flash) not working; work around via for loop and sleep. not ideal
@@ -111,11 +116,11 @@ def updateBlink1(current, next):
     '''
     if current == next:
         logfile.write(
-            'updateBlink1: NO CHANGE in prediction.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
+            'updateBlink1: using scale "' + selforecasttype + '"  NO CHANGE in prediction.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
         return
     elif current > next:
         logfile.write(
-            'updateBlink1: PREDICTION IMPROVING.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
+            'updateBlink1: using scale "' + selforecasttype + '"  PREDICTION IMPROVING.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
         for blink in range(0, (int(current) - int(next))):
             check_output([blinkcmd, '--off'])
             sleep(1)
@@ -124,7 +129,7 @@ def updateBlink1(current, next):
         return
     elif next > current:
         logfile.write(
-            'updateBlink1: PREDICTION WORSENING.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
+            'updateBlink1: using scale "' + selforecasttype + '" PREDICTION WORSENING.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
         for blink in range(0, 3 * int(next)):
             check_output([blinkcmd, '--off'])
             sleep(.5)
@@ -135,7 +140,7 @@ def updateBlink1(current, next):
 if __name__ == '__main__':
     logfile = open('log/activity', 'a')
     if validateBlink():
-        next = getSpaceWeather(forecasttype)
+        next, selforecasttype = getSpaceWeather(reqforecasttype)
         current = getCurrentBlink1Status()
-        updateBlink1(current, next)
+        updateBlink1(current, next, selforecasttype)
     logfile.close()
