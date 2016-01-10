@@ -4,11 +4,11 @@ import urllib
 from subprocess import check_output
 from collections import namedtuple
 import os
-import json
-from argparse import ArgumentParser
 from time import sleep
 import operator
 
+import json
+from argparse import ArgumentParser
 
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
@@ -73,8 +73,8 @@ def getSpaceWeather(forecasttype):
     raw = urllib.urlopen(URL)
     jresponse = json.load(raw)
 
-#    testdata = open('test-data/G0.json')
-#    jresponse = json.load(testdata)
+    #    testdata = open('test-data/G0.json')
+    #    jresponse = json.load(testdata)
 
     # current activity
     GRS['G'] = int(jresponse['0']['G']['Scale'])
@@ -95,8 +95,8 @@ def getSpaceWeather(forecasttype):
 
 def getCurrentBlink1Status():
     '''
-    read the current scale (as determined by the color) from the blink1 device to determine
-    what the previous forecast was
+    read the current scale (as determined by the color) from the blink1 device to so we can compare it with the
+    next scale to determine if the prediction is improving or worsening
     :return: currentSeverity (item.scale)
     '''
     currentColor = check_output([blinkcmd, '--rgbread'])
@@ -116,20 +116,23 @@ def updateBlink1(current, next, selforecasttype):
     '''
     if current == next:
         logfile.write(
-            'updateBlink1: using scale "' + selforecasttype + '"  NO CHANGE in prediction.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
+            'updateBlink1: using scale "' + selforecasttype + '"  NO CHANGE in prediction.  Old scale: ' + str(
+                current) + ' New scale: ' + str(next) + '\n')
         return
     elif current > next:
         logfile.write(
-            'updateBlink1: using scale "' + selforecasttype + '"  PREDICTION IMPROVING.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
+            'updateBlink1: using scale "' + selforecasttype + '"  PREDICTION IMPROVING.  Old scale: ' + str(
+                current) + ' New scale: ' + str(next) + '\n')
         for blink in range(0, (int(current) - int(next))):
             check_output([blinkcmd, '--off'])
             sleep(1)
-            check_output([blinkcmd,  '-t 750', '--rgb', '%s, %s, %s ' % (
+            check_output([blinkcmd, '-t 750', '--rgb', '%s, %s, %s ' % (
                 allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
         return
     elif next > current:
         logfile.write(
-            'updateBlink1: using scale "' + selforecasttype + '" PREDICTION WORSENING.  Old scale: ' + str(current) + ' New scale: ' + str(next) + '\n')
+            'updateBlink1: using scale "' + selforecasttype + '" PREDICTION WORSENING.  Old scale: ' + str(
+                current) + ' New scale: ' + str(next) + '\n')
         for blink in range(0, 3 * int(next)):
             check_output([blinkcmd, '--off'])
             sleep(.5)
