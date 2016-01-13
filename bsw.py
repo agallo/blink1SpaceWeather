@@ -37,14 +37,15 @@ blinkcmd = "/usr/local/bin/blink1-tool"
 
 # establish some named tuples for each position in the scale (this may be better than the above vars)
 Severity = namedtuple('Severity', 'scale red green blue')  # scale = 0-5, red/green/blue - hex values
+off  = Severity(scale='99', red='0x00', green='0x00', blue='0x00') # blink is off, no color, previous forecast unknown
 zero = Severity(scale='0', red='0x00', green='0xff', blue='0x00')  # green
-one = Severity(scale='1', red='0x00', green='0xff', blue='0xff')  # cyan
-two = Severity(scale='2', red='0x00', green='0x00', blue='0xff')  # blue
-three = Severity(scale='3', red='0xff', green='0xff', blue='0x00')  # yellow
+one  = Severity(scale='1', red='0x00', green='0xff', blue='0xff')  # cyan
+two  = Severity(scale='2', red='0x00', green='0x00', blue='0xff')  # blue
+three= Severity(scale='3', red='0xff', green='0xff', blue='0x00')  # yellow
 four = Severity(scale='4', red='0xff', green='0x00', blue='0xff')  # magenta
 five = Severity(scale='5', red='0xff', green='0x00', blue='0x00')  # red
 # create a list of named tuples that will make iterating over them and matching easier
-allscales = [zero, one, two, three, four, five]
+allscales = [zero, one, two, three, four, five, off]
 
 
 def validateBlink():
@@ -114,7 +115,13 @@ def updateBlink1(current, next, selforecasttype):
     :param current: the current state of the blink1
     :param next: the next scale to be displayed
     '''
-    if current == next:
+    if current == 99:
+        logfile.write('updateBlink1: using scale "' + selforecasttype + '" no prvious state (blink was off). '
+                                                                        'New scale: ' + str(next) + '\n')
+        check_output([blinkcmd, '--rgb', '%s, %s, %s ' % (
+            allscales[int(next)].red, allscales[int(next)].green, allscales[int(next)].blue)])
+        return
+    elif current == next:
         logfile.write(
             'updateBlink1: using scale "' + selforecasttype + '"  NO CHANGE in prediction.  Old scale: ' + str(
                 current) + ' New scale: ' + str(next) + '\n')
